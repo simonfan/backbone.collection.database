@@ -25,7 +25,12 @@ module.exports = function(grunt) {
 
         watch: {
             live: {
-                files: ['backbone.collection.database.js','dev/tests/**','dev/demo/**'],
+                files: [
+                    'backbone.collection.database.js',
+                    'backbone.collection.database.cursor.js',
+                    'dev/tests/**',
+                    'dev/demo/**'
+                ],
                 options: {
                     livereload: true
                 }

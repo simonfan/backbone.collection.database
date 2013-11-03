@@ -1,6 +1,7 @@
 {
 	"testsBaseUrl": "tests",
 	"tests": [
-		"main"
+		"base",
+		"cursor"
 	]
 }

@@ -4,78 +4,59 @@ meant to provide database-like features.
 
 @module backbone.collection.database
  */
-define(['backbone','jquery','underscore','backbone.collection.database.filtered','underscore'],
-function(Backbone , $      , undef      , Filtered                              , undef      ) {
+define(['backbone.collection.queryable','backbone.collection.database.cursor','jquery','underscore','backbone.collection.multisort'],
+function(Queryable                     , Cursor                              , $      , undef      , MultiSort                     ) {
 
     /**
     The Database constructor.
 
     @class Database
     @constructor
-    @extends Backbone.Collection
+    @extends backbone.collection.queryable
+    @extends backbone.collection.multisort
+        NOTE: Extension order is essential. Queryable must be the last one.
     */
-    var Database = Backbone.Collection.extend({
+    var Database = MultiSort.extend(Queryable.prototype).extend({
 
-        pageLength: 10,
+        projection: void 0,
+        /**
+        The default projection.
+        */
+
+        limit: 10,
         /**
         The default quantity of items to be returned from a query.
         It is important for both remote and local operations.
 
-        @property pageLength
+        @property limit
         @type Number
         */
 
-        ajaxOptions: {},
+        xhrOptions: {},
         /**
         Options object to be passed to the $.ajax method
         Example: { dataType: 'jsonp' }
 
-        @property ajaxOptions
-        @type Object
-        */
-
-        uniqueAttr: ['id'],
-        /**
-        Array of model attribute names that are unique.
-        Unique attributes help accelerate data fetching by
-        letting the Backbone DB instance know that if it can find one
-        model with the uniqueAttr corresponding to the request params
-        it can securely return the result without cheking with the server if there are
-        other possible results.
-
-        @property uniqueAttr
-        @type Array
-        */
-
-        filters: {
-            in: function(model, ids) {
-                return _.isUndefined(model.id) ? false : _.contains(ids, model.id);
-            },
-
-            notIn: function(model, ids) {
-                return _.isUndefined(model.id) ? false : !_.contains(ids, model.id);
-            },
-        },
-        /**
-        Object where the filters are stored.
-
-        Filters are functions that receive two arguments:
-        - the a model to which the filter is currently being applied to
-        - the value the request received in the queryParameters hash
-
-        @property attrFilters
+        @property xhrOptions
         @type Object
         */
 
         initialize: function(models, config) {
             config = config || {};
 
-            _.bindAll(this,'request','_requestByParams','_asynchRequest');
+            _.bindAll(this,'request','load');
 
-            this.pageLength = config.pageLength || this.pageLength;
-            this.ajaxOptions = config.ajaxOptions || this.ajaxOptions;
 
-            this.uniqueAttr = _.isString(config.uniqueAttr) ? this.uniqueAttr.push(config.uniqueAttr) : this
+            this.url = config.url
+            this.limit = config.limit || this.limit;
+            this.xhrOptions = config.xhrOptions || config.ajaxOptions || this.xhrOptions;
+
+
+            // cursor objects are stored here.
+            this._cursors = {};
+
+            // cache
+            this._cache = {};
         },
         /**
         Binds other methods to instance,
@@ -90,10 +71,116 @@ function(Backbone , $      , undef      , Filtered                              
             Configuration object
          */
 
-        cacheInit: function() {
-            this._cache = {};
-        }
+        requestOne: function(criteria) {
+
+        },
+        /**
+
+        @method
+        */
+
+
+
+
+        load: function(requestData) {
+
+            // map the requestData
+            requestData = this._mapRequestData(requestData);
+
+            // attempt to load from cache
+            var cached = this.cache(requestData);
+
+            if (cached) {
+                return cached;
+
+            } else {
+
+                /**
+                 * before, we implemented the request by ourselves,
+                 * so we had to parse and add the response.
+                 * The new implementation uses Bakcbone built-in fetch functionality, with some special options.
+                 */
+                console.log(this);
+
+                    // fetch options: Backbone.set options, jqXHR options
+                var fetchOptions = _.extend({
+                        data: requestData,
+                        remove: false
+                    }, this.xhrOptions),
+                    // run fetch
+                    fetch = this.fetch(fetchOptions);
+
+
+                // cache fetch and return it
+                return this.cache(requestData, fetch);
+            }
+
+        },
+        /**
+        Coordinates the whole process of loading data from server.
+        @method load
+        */
+
+        Cursor: Cursor,
+        _cursors: {},
+        cursor: function(criteria) {
+            criteria = criteria || {};
+
+            var cursorId = JSON.stringify(criteria);
+
+            return this._cursors[ cursorId ] ? this._cursors[ cursorId ] : this._cursors[ cursorId ] = new this.Cursor({
+                database: this,
+                criteria: criteria,
+                limit: this.limit,
+            });
+        },
+        /**
+        Returns a cursor that attends the criteria.
+        Internalizes the creation of the cursor, so that the cursor is always
+        available.
+
+        @method cursor
+        */
+
+
+        dataMap: {},
+        _mapRequestData: function(requestData) {
+
+            _.each(this.dataMap, function(dest, src) {
+
+                var value = requestData[ src ];
+
+                // save
+                requestData[ dest ] = _.isObject(value) ? _.clone(value) : value;
+
+                // remove original
+                delete requestData[ src ];
+            });
+
+            return requestData;
+        },
+        /**
+        Receives a data object containing data about the request
+        to be made to the database.
+        Should return a data object with the mapped data names.
+
+        @method _mapRequestData
+        */
+
+
+        // Cache system
+        _cache: {},
+        cache: function(requestData, requestPromise) {
+                // the request identifier is a JSON string.
+            var requestIdentifier = JSON.stringify(requestData);
+
+            return (arguments.length < 2) ? this._cache[ requestIdentifier ] : this._cache[ requestIdentifier ] = requestPromise;
+        },
     });
+
+
+    // aliases
+    Database.prototype.request = Database.prototype.cursor;
 
 
     return Database;
