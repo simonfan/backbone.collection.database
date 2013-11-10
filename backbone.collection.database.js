@@ -85,7 +85,7 @@ function(Queryable                     , Cursor                              , $
         load: function(requestData) {
 
             // map the requestData
-            requestData = this._mapRequestData(requestData);
+            requestData = this.mapRequestData(requestData, this.dataMap);
 
             // attempt to load from cache
             var cached = this.cache(requestData);
@@ -144,9 +144,9 @@ function(Queryable                     , Cursor                              , $
 
 
         dataMap: {},
-        _mapRequestData: function(requestData) {
+        mapRequestData: function(requestData, dataMap) {
 
-            _.each(this.dataMap, function(dest, src) {
+            _.each(dataMap, function(dest, src) {
 
                 var value = requestData[ src ];
 
@@ -164,7 +164,9 @@ function(Queryable                     , Cursor                              , $
         to be made to the database.
         Should return a data object with the mapped data names.
 
-        @method _mapRequestData
+        @method mapRequestData
+        @param requestData {Object}
+        @param dataMap {Object}
         */
 
 
